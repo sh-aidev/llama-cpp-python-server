@@ -3,8 +3,8 @@
 # **LLaMA CPP Python Server with FastAPI**
 
 [![python](https://img.shields.io/badge/-Python_%7C_3.10-blue?logo=python&logoColor=white)](https://github.com/pre-commit/pre-commit)
-[![fastapi](https://img.shields.io/badge/-FastAPI_%7C_0.68.1-278c5d?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![uvicorn](https://img.shields.io/badge/-Uvicorn_%7C_0.15.0-8c9146?logo=uvicorn&logoColor=white)](https://www.uvicorn.org/)
+[![fastapi](https://img.shields.io/badge/-FastAPI_%7C_0.111.0-278c5d?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![uvicorn](https://img.shields.io/badge/-Uvicorn_%7C_0.30.0-8c9146?logo=uvicorn&logoColor=white)](https://www.uvicorn.org/)
 [![cpp](https://img.shields.io/badge/-C%2B%2B_-00599c?logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
 ![license](https://img.shields.io/badge/License-MIT-green?logo=mit&logoColor=white)
 
