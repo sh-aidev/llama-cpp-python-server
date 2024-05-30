@@ -1,0 +1,7 @@
+llama-cpp-python==0.2.76
+boto3==1.34.113
+loguru==0.7.2
+toml==0.10.2
+pydantic==2.7.1
+fastapi[all]==0.110.0
+sentence-transformers==3.0.0

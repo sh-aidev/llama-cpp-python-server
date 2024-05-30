@@ -1,0 +1,39 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV MALENIA_IN_DOCKER=1
+
+ARG USERNAME=developer
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+# setting timezone
+RUN ln -fs /usr/share/zoneinfo/Asia/Kolkata /etc/localtime
+
+RUN apt update && apt install --no-install-recommends -y \
+    build-essential \
+    sudo \
+    ssh \
+    git \
+    wget \
+    curl \
+    software-properties-common \
+    && apt clean
+
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3
+
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install setuptools wheel black
+
+WORKDIR /workspace
+
+ADD requirements.txt .
+
+RUN python3.10 -m pip install -r requirements.txt && rm -rf /root/.cache/pip
+
+COPY . .
+
+EXPOSE 8080
+
+ENTRYPOINT ["python3", "__main__.py"]
+
