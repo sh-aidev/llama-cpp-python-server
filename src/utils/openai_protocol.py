@@ -12,44 +12,6 @@ def random_uuid() -> str:
     return str(uuid.uuid4().hex)
 
 
-class ErrorResponse(BaseModel):
-    object: str = "error"
-    message: str
-    type: str
-    param: Optional[str] = None
-    code: Optional[str] = None
-
-
-class ModelPermission(BaseModel):
-    id: str = Field(default_factory=lambda: f"modelperm-{random_uuid()}")
-    object: str = "model_permission"
-    created: int = Field(default_factory=lambda: int(time.time()))
-    allow_create_engine: bool = False
-    allow_sampling: bool = True
-    allow_logprobs: bool = True
-    allow_search_indices: bool = False
-    allow_view: bool = True
-    allow_fine_tuning: bool = False
-    organization: str = "*"
-    group: Optional[str] = None
-    is_blocking: str = False
-
-
-class ModelCard(BaseModel):
-    id: str
-    object: str = "model"
-    created: int = Field(default_factory=lambda: int(time.time()))
-    owned_by: str = "vllm"
-    root: Optional[str] = None
-    parent: Optional[str] = None
-    permission: List[ModelPermission] = Field(default_factory=list)
-
-
-class ModelList(BaseModel):
-    object: str = "list"
-    data: List[ModelCard] = Field(default_factory=list)
-
-
 class UsageInfo(BaseModel):
     prompt_tokens: int = 0
     total_tokens: int = 0
@@ -57,11 +19,13 @@ class UsageInfo(BaseModel):
 
 
 class ChatCompletionRequest(BaseModel):
-    messages: List[Dict[str, Union[str, List[Dict[str, Union[str, List[Dict[str, str]]]]]]]]
+    id: str = Field(default_factory=lambda: f"chatcmpl-{random_uuid()}")
+    model: str = "gpt-3.5-turbo"
+    messages: List[Dict[str,Any]]
     temperature: Optional[float] = 0.7
     top_p: Optional[float] = 1.0
     n: Optional[int] = 1
-    max_tokens: Optional[int] = None
+    max_tokens: Optional[int] = 256
     user: Optional[str] = None
     best_of: Optional[int] = None
     top_k: Optional[int] = -1
@@ -69,112 +33,40 @@ class ChatCompletionRequest(BaseModel):
     grammar: Optional[str] = None
 
 
-class CompletionRequest(BaseModel):
-    model: str
-    # a string, array of strings, array of tokens, or array of token arrays
-    prompt: Union[List[int], List[List[int]], str, List[str]]
-    suffix: Optional[str] = None
-    max_tokens: Optional[int] = 16
-    temperature: Optional[float] = 1.0
-    top_p: Optional[float] = 1.0
-    n: Optional[int] = 1
-    stream: Optional[bool] = False
-    logprobs: Optional[int] = None
-    echo: Optional[bool] = False
-    stop: Optional[Union[str, List[str]]] = Field(default_factory=list)
-    presence_penalty: Optional[float] = 0.0
-    frequency_penalty: Optional[float] = 0.0
-    best_of: Optional[int] = None
-    logit_bias: Optional[Dict[str, float]] = None
-    user: Optional[str] = None
-    # Additional parameters supported by vLLM
-    top_k: Optional[int] = -1
-    ignore_eos: Optional[bool] = False
-    use_beam_search: Optional[bool] = False
-    stop_token_ids: Optional[List[int]] = Field(default_factory=list)
-    skip_special_tokens: Optional[bool] = True
-    spaces_between_special_tokens: Optional[bool] = True
-    repetition_penalty: Optional[float] = 1.0
-    min_p: Optional[float] = 0.0
-    grammar: Optional[Union[str, Annotated[bytes, File()]]] = None
-
-
-class LogProbs(BaseModel):
-    text_offset: List[int] = Field(default_factory=list)
-    token_logprobs: List[Optional[float]] = Field(default_factory=list)
-    tokens: List[str] = Field(default_factory=list)
-    top_logprobs: Optional[List[Optional[Dict[int, float]]]] = None
-
-
-class CompletionResponseChoice(BaseModel):
-    index: int
-    text: str
-    logprobs: Optional[LogProbs] = None
-    finish_reason: Optional[Literal["stop", "length"]] = None
-
-
-class CompletionResponse(BaseModel):
-    id: str = Field(default_factory=lambda: f"cmpl-{random_uuid()}")
-    object: str = "text_completion"
-    created: int = Field(default_factory=lambda: int(time.time()))
-    model: str
-    choices: List[CompletionResponseChoice]
-    usage: UsageInfo
-
-
-class CompletionResponseStreamChoice(BaseModel):
-    index: int
-    text: str
-    logprobs: Optional[LogProbs] = None
-    finish_reason: Optional[Literal["stop", "length"]] = None
-
-
-class CompletionStreamResponse(BaseModel):
-    id: str = Field(default_factory=lambda: f"cmpl-{random_uuid()}")
-    object: str = "text_completion"
-    created: int = Field(default_factory=lambda: int(time.time()))
-    model: str
-    choices: List[CompletionResponseStreamChoice]
-    usage: Optional[UsageInfo]
-
-
-class ChatMessage(BaseModel):
-    role: str
+class ChatCompletionMessage(BaseModel):
     content: str
+    role: str
+    function_call: Optional[str] = None
+    tool_calls: Optional[List[str]] = None
 
 
-class ChatCompletionResponseChoice(BaseModel):
+class Choice(BaseModel):
+    finish_reason: str
     index: int
-    message: ChatMessage
-    finish_reason: Optional[Literal["stop", "length"]] = None
-
+    logprobs: Optional[Dict[str, List[float]]] = None
+    message: ChatCompletionMessage
 
 class ChatCompletionResponse(BaseModel):
     id: str = Field(default_factory=lambda: f"chatcmpl-{random_uuid()}")
     object: str = "chat.completion"
     created: int = Field(default_factory=lambda: int(time.time()))
     model: str
-    choices: List[ChatCompletionResponseChoice]
+    choices: List[Choice]
+    system_fingerprint: Optional[str] = None
     usage: UsageInfo
 
+class EmbeddingRequest(BaseModel):
+    id: str = Field(default_factory=lambda: f"embedding-{random_uuid()}")
+    text: Union[str, List[str]]
+    model: str = "text-embedding-ada-002"
 
-class DeltaMessage(BaseModel):
-    role: Optional[str] = None
-    content: Optional[str] = None
-
-
-class ChatCompletionResponseStreamChoice(BaseModel):
+class Embedding(BaseModel):
+    embedding: List[float]
     index: int
-    delta: DeltaMessage
-    finish_reason: Optional[Literal["stop", "length"]] = None
+    object: str = "embedding"
 
-
-class ChatCompletionStreamResponse(BaseModel):
-    id: str = Field(default_factory=lambda: f"chatcmpl-{random_uuid()}")
-    object: str = "chat.completion.chunk"
-    created: int = Field(default_factory=lambda: int(time.time()))
+class CreateEmbeddingResponse(BaseModel):
+    data: List[Embedding]
     model: str
-    choices: List[ChatCompletionResponseStreamChoice]
-    usage: Optional[UsageInfo] = Field(
-        default=None, description="data about request and response"
-    )
+    object: str = "list"
+    usage: UsageInfo

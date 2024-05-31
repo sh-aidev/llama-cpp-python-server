@@ -10,9 +10,11 @@ class ServerModel(BaseModel):
 
 
 class LLMModel(BaseModel):
+    multimodal: bool
     name: str
     n_ctx: int
     n_threads: int
+    quantization: str
 
 class S3Model(BaseModel):
     bucket: str

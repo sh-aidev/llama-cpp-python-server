@@ -11,13 +11,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.utils.configs import LLMConfig
 from src.utils.logger import logger
 from src.core.llm_core import LlamaCpp
+from src.core.llm_openai import LLMOpenAI, EmbedOpenAI
+from src.core.llm_multimodal import LlamaCppMultimodal
 from src.core.llm_embed import LLMEmbed
-from src.utils.openai_protocol import (ChatCompletionRequest, ChatCompletionResponse, ChatMessage, UsageInfo, random_uuid)
+from src.utils.openai_protocol import (ChatCompletionRequest, ChatCompletionResponse, random_uuid, EmbeddingRequest, CreateEmbeddingResponse)
 
 def get_router(cfg: LLMConfig) -> APIRouter:
     v1Router = APIRouter()
-    llm = LlamaCpp(cfg)
-    embed = LLMEmbed(cfg)
     @v1Router.post("/v1/chat/completions")
     async def create_chat_completion(
         request: ChatCompletionRequest
@@ -26,67 +26,58 @@ def get_router(cfg: LLMConfig) -> APIRouter:
         Create a chat completion response for the given request. This is a streaming endpoint that will send the response in chunks.
 
         Args:
-            request (ChatCompletionRequest): Request object
-            raw_request (Request): Raw request object
+            request (Request): Request object
 
         Returns:
             StreamingResponse: Streaming response object
         """
-        request_id = f"cmpl-{random_uuid()}"
-        created_time = int(time.monotonic())
 
-        prompt = ""
-        images = []
-        for message in request.messages:
-            if message['role'] == "user":
-                prompt += "USER:\n"
-                prompt += f"{message['content']}\n"
-            if message['role'] == "assistant":
-                prompt += "ASSISTANT:\n"
-                prompt += f"{message['content']}\n"
+        cfg.llm_config.llm.name = request.model
+        cfg.llm_config.llm.multimodal = True if "llava" in request.model else False
+        if "gpt" in request.model:
+            openai_llm = LLMOpenAI(cfg)
+            logger.debug(f"Request Messages: {request.messages}")
 
-        prompt += "ASSISTANT:\n"
-        
-        logger.debug(f"Prompt: {prompt}")
+            generation_kwargs = dict(
+                model_name = request.model, messages = request.messages, max_tokens = request.max_tokens
+            )
+            response = await asyncio.to_thread(openai_llm.predict, **generation_kwargs)
+        else:
 
-        generation_kwargs = dict(
-            text = prompt, grammar_txt = request.grammar, max_tokens = request.max_tokens
-        )
+            llm = LlamaCppMultimodal(cfg) if cfg.llm_config.llm.multimodal else LlamaCpp(cfg)
 
-        response = await asyncio.to_thread(llm.predict, **generation_kwargs)
+            generation_kwargs = dict(
+                messages = request.messages, 
+                grammar_txt = request.grammar, 
+                max_tokens = request.max_tokens
+            )
 
-        chat_completion_response = ChatCompletionResponse(
-            id = request_id,
-            model = cfg.llm_config.llm.name,
-            choices = [
-                {
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": response
-                    },
-                    "finish_reason": "stop"
-                }
-            ],
-            usage = UsageInfo()
-        )
-        return JSONResponse(content=chat_completion_response.dict())
+            response = await asyncio.to_thread(llm.predict, **generation_kwargs)
+
+        return response
 
 
     @v1Router.post("/v1/embeddings")
-    async def get_embeddings(text: str) -> dict:
+    async def get_embeddings(request: EmbeddingRequest) -> CreateEmbeddingResponse:
         """
         Get embeddings for the given text
 
         Args:
-            request (Request): Request object
+            request (EmbeddingRequest): Request object
 
         Returns:
-            dict: Embeddings for the given text
+            CreateEmbeddingResponse: Embedding response object
         """
-
-        embeddings = await asyncio.to_thread(embed.encode, text)
-        return {"embedding": embeddings.tolist()}
+        cfg.llm_config.embed.name = request.model
+        if "ada-002" in request.model:
+            embed = EmbedOpenAI()
+            embeddings = await asyncio.to_thread(embed.encode, request.text, request.model)
+        else:
+            embed = LLMEmbed(cfg)
+            embeddings = await asyncio.to_thread(embed.encode, request.text)
+        
+        logger.debug(f"Embedding Response: {embeddings}")
+        return embeddings
 
     @v1Router.get("/health")
     def health():
